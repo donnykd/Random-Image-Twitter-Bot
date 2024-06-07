@@ -34,12 +34,11 @@ auth = tweepy.OAuth1UserHandler(API_KEY, API_KEY_SECRET, ACCESS_TOKEN, ACCESS_TO
 auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
 api = tweepy.API(auth)
 
-# Interval and debug
-INTERVAL = 5
-debug = 1
+root_folder_name = os.getenv('ROOT_FOLDER_NAME')
 
 def get_root_folder_id():
-    folder_list = drive.ListFile({'q': "title = 'Screenshots' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"}).GetList()
+    folder_list = drive.ListFile({'q': "title = '" + root_folder_name + "' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"}).GetList()
+
     if not folder_list:
         logger.error('Screenshots folder not found')
         return None
@@ -47,14 +46,13 @@ def get_root_folder_id():
     return folder_list[0]['id']
 
 def get_random_image_from_drive(root_folder_id):
-    # List all subfolders in the "Screenshots" folder
     subfolders = drive.ListFile({'q': f"'{root_folder_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false"}).GetList()
     
     if not subfolders:
-        logger.error('No subfolders found in the Screenshots folder')
+        logger.error('No subfolders found in the '+ root_folder_name + ' folder')
         return None, None
     
-    # Select a random subfolder
+    #Random subfolder
     random_subfolder = random.choice(subfolders)
     subfolder_id = random_subfolder['id']
     subfolder_name = random_subfolder['title']
@@ -66,7 +64,7 @@ def get_random_image_from_drive(root_folder_id):
         logger.error(f'No images found in subfolder: {subfolder_name}')
         return None, None
     
-    # Select a random image
+    #Random Img
     random_image = random.choice(images)
     image_id = random_image['id']
     
@@ -77,43 +75,43 @@ def download_image_from_drive(file_id, destination):
     file.GetContentFile(destination)
     logger.info(f'Image {file_id} downloaded to {destination}')
 
-def main():
+def tweet_image():
     root_folder_id = get_root_folder_id()
     if not root_folder_id:
         return
 
+    image_id, subfolder_name = get_random_image_from_drive(root_folder_id)
+    if not image_id or not subfolder_name:
+        return
+    
+    local_image_path = './temp_image.jpg'
+    try:
+        download_image_from_drive(image_id, local_image_path)
+        logger.info('Image downloaded')
+
+        media = api.media_upload(local_image_path)
+        logger.info('Image uploaded to Twitter')
+
+        client.create_tweet(text=subfolder_name, media_ids=[media.media_id_string])
+        logger.info('Tweet created')
+
+        os.remove(local_image_path)
+        logger.info('Local image file removed')
+
+    except Exception as e:
+        logger.error(f'Failed to tweet: {e}')
+
+def main():
     while True:
-        cur_time = datetime.utcnow() + timedelta(hours=1)
-        logger.info(f'Tweeting at {cur_time.time()}')
-        
-        image_id, subfolder_name = get_random_image_from_drive(root_folder_id)
-        if not image_id or not subfolder_name:
-            time.sleep(INTERVAL)
-            continue
-        
-        local_image_path = './temp_image.jpg'
-        try:
-            # Download the random image from Google Drive
-            download_image_from_drive(image_id, local_image_path)
-            logger.info('Image downloaded')
+        now = datetime.utcnow()
+        next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+        sleep_time = (next_hour - now).total_seconds()
 
-            # Upload the image to Twitter
-            media = api.media_upload(local_image_path)
-            logger.info('Image uploaded to Twitter')
+        logger.info(f'Current time: {now}, sleeping for {sleep_time} seconds until next hour.')
 
-            # Create the tweet with the image and subfolder name as the caption
-            client.create_tweet(text=subfolder_name, media_ids=[media.media_id_string])
-            logger.info('Tweet created')
+        time.sleep(sleep_time)
 
-            # Remove the local image file
-            os.remove(local_image_path)
-            logger.info('Local image file removed')
-
-        except Exception as e:
-            logger.error(f'Failed to tweet: {e}')
-
-        # Wait for the specified interval before the next tweet
-        time.sleep(INTERVAL)
+        tweet_image()
 
 if __name__ == "__main__":
     main()
