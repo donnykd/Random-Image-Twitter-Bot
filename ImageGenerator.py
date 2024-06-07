@@ -7,11 +7,13 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
+from oauth2client.service_account import ServiceAccountCredentials
 
 # PyDrive authentication
 gauth = GoogleAuth()
-gauth.LocalWebserverAuth()
-drive = GoogleDrive(gauth)
+scope = ['https://www.googleapis.com/auth/drive']
+credentials = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+gauth.credentials = credentials
 
 # Logger
 logging.basicConfig(level=logging.INFO)
