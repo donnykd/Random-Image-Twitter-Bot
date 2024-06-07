@@ -58,8 +58,20 @@ def get_random_image_from_drive(root_folder_id):
         logger.error('No subfolders found in the '+ root_folder_name + ' folder')
         return None, None
     
+    weights = []
+    for subfolder in subfolders:
+        subfolder_id = subfolder['id']
+        images = drive.ListFile({'q': f"'{subfolder_id}' in parents and trashed=false"}).GetList()
+        files_num = len(images)
+        weights.append(files_num)
+    
+    total_files = sum(weights)
+    if total_files == 0:
+        logger.error('No images found in any subfolder')
+        return None, None
+
     #Random subfolder
-    random_subfolder = random.choice(subfolders)
+    random_subfolder = random.choices(subfolders, weights=weights, k=1)[0]
     subfolder_id = random_subfolder['id']
     subfolder_name = random_subfolder['title']
     
