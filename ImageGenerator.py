@@ -5,15 +5,19 @@ import tweepy
 import time
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from pydrive.auth import GoogleAuth
-from pydrive.drive import GoogleDrive
-from oauth2client.service_account import ServiceAccountCredentials
+from pydrive2.auth import GoogleAuth
+from pydrive2.drive import GoogleDrive
 
+settings = {
+            "client_config_backend": "service",
+                "service_config": {
+                    "client_json_file_path": "credentials.json",
+                }
+            }
 # PyDrive authentication
-gauth = GoogleAuth()
-scope = ['https://www.googleapis.com/auth/drive']
-credentials = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
-gauth.credentials = credentials
+gauth = GoogleAuth(settings=settings)
+gauth.ServiceAuth()
+drive = GoogleDrive(gauth)
 
 # Logger
 logging.basicConfig(level=logging.INFO)
